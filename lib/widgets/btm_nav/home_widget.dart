@@ -38,9 +38,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info/package_info.dart';
 import 'package:pedantic/pedantic.dart';
+import 'package:share/share.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeWidget extends StatefulWidget {
+  const HomeWidget(this.hasOpened);
+
+  final bool hasOpened;
+
   @override
   _HomeWidgetState createState() => _HomeWidgetState();
 }
@@ -81,7 +86,7 @@ class _HomeWidgetState extends State<HomeWidget> {
                     physics: AlwaysScrollableScrollPhysics(),
                     children: [
                       _getAppBar(context),
-                      AnnouncementBanner(key: _announceKey),
+                      AnnouncementBanner(key: _announceKey, hasOpened: widget.hasOpened),
                       SmallShortcutsRowWidget(
                         key: _shortcutKey,
                         onTap: (type, id) => _navigate(
@@ -91,8 +96,10 @@ class _HomeWidgetState extends State<HomeWidget> {
                           key: _coursesKey,
                           onTap: (type, id) => _navigate(
                               type, id, context, Tracking.COURSE_TAPPED)),
-                      DailyMessageWidget(key: _dailyMessageKey),
                       StatsWidget(),
+                      SizedBox(height: 16),
+                      DailyMessageWidget(key: _dailyMessageKey),
+                      SizedBox(height: 24)
                     ],
                   );
                 }
@@ -110,11 +117,6 @@ class _HomeWidgetState extends State<HomeWidget> {
       );
 
   Future<void> _navigate(type, id, BuildContext context, String origin) {
-    Tracking.trackEvent({
-      Tracking.TYPE: origin,
-      Tracking.DESTINATION: Tracking.destinationData(mapToPlural(type), id)
-    });
-
     return checkConnectivity().then(
       (value) {
         if (value) {
@@ -217,7 +219,7 @@ class _HomeWidgetState extends State<HomeWidget> {
     final snackBar = SnackBar(
         content: GestureDetector(
           onTap: () {
-            Clipboard.setData(ClipboardData(text: '$line1 $userID'));
+            Share.share('$line1 $userID');
           },
           child: Column(
             mainAxisAlignment: MainAxisAlignment.start,

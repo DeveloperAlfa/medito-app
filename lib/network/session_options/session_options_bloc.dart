@@ -27,11 +27,13 @@ import 'package:Medito/widgets/player/player_widget.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:pedantic/pedantic.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SessionOptionsBloc {
   SessionOptionsRepository _repo;
 
   var illustration;
+  final LAST_SPEAKER_SELECTED = 'LAST_SPEAKER_SELECTED';
   Screen _screen;
 
   // Download stuff
@@ -47,7 +49,6 @@ class SessionOptionsBloc {
   StreamController<String> secondaryColorController;
   StreamController<ApiResponse<List<VoiceItem>>> contentListController;
 
-  MediaLibrary _mediaLibrary;
   SessionData _options;
 
   var currentSelectedFileIndex = 0;
@@ -89,8 +90,9 @@ class SessionOptionsBloc {
         .toList();
 
     var voiceGroups = _generateVoiceGroups(files);
-
-    currentSelectedFileIndex = options.files.indexOf(files.first);
+    var prefs = await SharedPreferences.getInstance();
+    var lastSelectedVoice = prefs.getInt(LAST_SPEAKER_SELECTED+id);
+    currentSelectedFileIndex = lastSelectedVoice ?? options.files.indexOf(files.first);
 
     // Show title, desc and image
     contentListController.sink.add(ApiResponse.completed(voiceGroups));
@@ -104,7 +106,11 @@ class SessionOptionsBloc {
     _options = options;
   }
 
-  void saveOptionsSelectionsToSharedPreferences(String id) {}
+  Future<void> saveOptionsSelectionsToSharedPreferences(String id) async {
+    var options = await _repo.fetchOptions(id, false);
+    var prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(LAST_SPEAKER_SELECTED+id, currentSelectedFileIndex);
+  }
 
   bool isDownloading(AudioFile file) => downloadSingleton.isDownloadingMe(file);
 
@@ -123,16 +129,13 @@ class SessionOptionsBloc {
   }
 
   void _trackSessionStart(MediaItem mediaItem) {
-    var data = {
+    unawaited(Tracking.trackEvent({
       Tracking.TYPE: Tracking.AUDIO_STARTED,
-      Tracking.SESSION_VOICE: mediaItem.artist,
+      Tracking.SESSION_ID: mediaItem.id,
+      Tracking.SESSION_TITLE: mediaItem.title,
       Tracking.SESSION_LENGTH: mediaItem.extras[LENGTH],
-      Tracking.DESTINATION: Tracking.destinationData(
-          mapToPlural(_screen.toString()),
-          mediaItem.extras[SESSION_ID].toString())
-    };
-
-    Tracking.trackEvent(data);
+      Tracking.SESSION_VOICE: mediaItem.artist
+    }));
   }
 
   MediaItem getMediaItemForAudioFile(AudioFile file) {
